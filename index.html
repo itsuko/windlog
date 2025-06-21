@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>風向モニター</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+    .compass {
+      width: 150px;
+      height: 150px;
+      margin: 30px auto;
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Compass_rose_en.svg/200px-Compass_rose_en.svg.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      position: relative;
+    }
+    .arrow {
+      position: absolute;
+      width: 10px;
+      height: 75px;
+      background: red;
+      top: 37.5px;
+      left: 70px;
+      transform-origin: bottom center;
+      transform: rotate(0deg);
+      transition: transform 0.5s ease-out;
+    }
+  </style>
+</head>
+<body>
+  <h1>風向モニター</h1>
+  <p id="info">データ取得中...</p>
+  <div class="compass">
+    <div class="arrow" id="arrow"></div>
+  </div>
+
+  <script>
+    // あなたのApps Script公開URLをここに貼る
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
+
+    fetch(apiUrl)
+      .then(res => res.json())
+      .then(data => {
+        const arrow = document.getElementById('arrow');
+        const deg = data.windDeg || 0;
+        arrow.style.transform = `rotate(${deg}deg)`;
+
+        const info = `風向: ${deg}°　風速: ${data.windSpeed} m/s　天気: ${data.description}　湿度: ${data.humidity}%（${new Date(data.timestamp).toLocaleString()}）`;
+        document.getElementById('info').textContent = info;
+      })
+      .catch(err => {
+        document.getElementById('info').textContent = "データ取得エラー：" + err;
+      });
+  </script>
+</body>
