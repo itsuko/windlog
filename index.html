@@ -24,19 +24,26 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      transform-origin: bottom center;
-      transition: transform 0.5s ease, border-width 0.5s ease;
-    }
-
-    .arrow::before {
-      content: '';
-      display: block;
       width: 0;
       height: 0;
-      margin-left: -10px;
+      transform-origin: bottom center;
+      transition: transform 0.5s ease;
+    }
+
+    .arrow .shaft {
+      width: 6px;
+      height: 70px;
+      background-color: red;
+      margin: 0 auto;
+    }
+
+    .arrow .head {
+      width: 0;
+      height: 0;
+      margin: 0 auto;
       border-left: 10px solid transparent;
       border-right: 10px solid transparent;
-      border-bottom: 30px solid red; /* 初期の風速表示 */
+      border-bottom: 15px solid red;
     }
   </style>
 </head>
@@ -44,11 +51,14 @@
   <h1>風向モニター</h1>
   <p id="info">データ取得中...</p>
   <div class="compass">
-    <div class="arrow" id="arrow"></div>
+    <div class="arrow" id="arrow">
+      <div class="shaft" id="shaft"></div>
+      <div class="head"></div>
+    </div>
   </div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← あなたの Apps Script 公開URLに置き換えてください
 
     fetch(apiUrl)
       .then(res => res.json())
@@ -59,16 +69,17 @@
         const description = data.description ?? '不明';
         const time = new Date(data.timestamp).toLocaleString();
 
-        // 風速に応じた太さ（10段階で変化）
-        const baseSize = Math.min(Math.max(speed, 1), 10); // 1～10に制限
-
-        // 矢印を回転＋太さ変更
+        // 回転
         const arrow = document.getElementById('arrow');
-        arrow.style.transform = `rotate(${deg}deg) scaleY(${baseSize / 3})`; // 矢印の長さも伸縮
-        arrow.firstElementChild?.style?.setProperty('--thickness', `${baseSize}px`);
+        arrow.style.transform = `rotate(${deg}deg)`;
 
-        // テキスト更新
-        const info = `風向: ${deg}°　風速: ${speed} m/s　天気: ${description}　湿度: ${humidity}%（${time}）`;
+        // 太さ調整（風速によってシャフトの太さを変える）
+        const shaft = document.getElementById('shaft');
+        const thickness = Math.max(4, Math.min(speed * 2, 20)); // 4〜20px
+        shaft.style.width = `${thickness}px`;
+
+        // テキスト
+        const info = `風向: ${deg}°　風速: ${speed.toFixed(1)} m/s　天気: ${description}　湿度: ${humidity}%（${time}）`;
         document.getElementById('info').textContent = info;
       })
       .catch(err => {
