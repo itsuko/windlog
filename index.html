@@ -9,25 +9,34 @@
       text-align: center;
       padding: 20px;
     }
+
     .compass {
-      width: 150px;
-      height: 150px;
+      width: 200px;
+      height: 200px;
       margin: 30px auto;
       background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Compass_rose_en.svg/200px-Compass_rose_en.svg.png');
       background-size: contain;
       background-repeat: no-repeat;
       position: relative;
     }
+
     .arrow {
       position: absolute;
-      width: 10px;
-      height: 75px;
-      background: red;
-      top: 37.5px;
-      left: 70px;
+      top: 50%;
+      left: 50%;
       transform-origin: bottom center;
-      transform: rotate(0deg);
-      transition: transform 0.5s ease-out;
+      transition: transform 0.5s ease, border-width 0.5s ease;
+    }
+
+    .arrow::before {
+      content: '';
+      display: block;
+      width: 0;
+      height: 0;
+      margin-left: -10px;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 30px solid red; /* 初期の風速表示 */
     }
   </style>
 </head>
@@ -39,17 +48,27 @@
   </div>
 
   <script>
-    // あなたのApps Script公開URLをここに貼る
     const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const arrow = document.getElementById('arrow');
         const deg = data.windDeg || 0;
-        arrow.style.transform = `rotate(${deg}deg)`;
+        const speed = data.windSpeed || 0;
+        const humidity = data.humidity ?? '–';
+        const description = data.description ?? '不明';
+        const time = new Date(data.timestamp).toLocaleString();
 
-        const info = `風向: ${deg}°　風速: ${data.windSpeed} m/s　天気: ${data.description}　湿度: ${data.humidity}%（${new Date(data.timestamp).toLocaleString()}）`;
+        // 風速に応じた太さ（10段階で変化）
+        const baseSize = Math.min(Math.max(speed, 1), 10); // 1～10に制限
+
+        // 矢印を回転＋太さ変更
+        const arrow = document.getElementById('arrow');
+        arrow.style.transform = `rotate(${deg}deg) scaleY(${baseSize / 3})`; // 矢印の長さも伸縮
+        arrow.firstElementChild?.style?.setProperty('--thickness', `${baseSize}px`);
+
+        // テキスト更新
+        const info = `風向: ${deg}°　風速: ${speed} m/s　天気: ${description}　湿度: ${humidity}%（${time}）`;
         document.getElementById('info').textContent = info;
       })
       .catch(err => {
@@ -57,3 +76,4 @@
       });
   </script>
 </body>
+</html>
