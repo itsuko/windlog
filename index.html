@@ -27,7 +27,6 @@
       width: 0;
       height: 0;
       transform-origin: bottom center;
-      transform: rotate(${(windDeg + 180) % 360}deg);
       transition: transform 0.5s ease;
     }
 
@@ -72,7 +71,8 @@
 
         // 回転
         const arrow = document.getElementById('arrow');
-        arrow.style.transform = `rotate(${deg}deg)`;
+        const correctedDeg = (deg + 180) % 360; 
+        arrow.style.transform = `rotate(${correctedDeg}deg)`;
 
         // 太さ調整（風速によってシャフトの太さを変える）
         const shaft = document.getElementById('shaft');
