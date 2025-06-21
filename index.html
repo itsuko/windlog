@@ -1,28 +1,90 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <title>風向モニター</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    .compass {
+      width: 200px;
+      height: 200px;
+      margin: 30px auto;
+      background-image: url('https://upload.wikimedia.org/wikipedia/commons/thumb/d/d1/Compass_rose_en.svg/200px-Compass_rose_en.svg.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      position: relative;
+    }
+
+    .arrow {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 0;
+      height: 0;
+      transform-origin: bottom center;
+      transition: transform 0.5s ease;
+    }
+
+    .arrow .shaft {
+      width: 6px;
+      height: 70px;
+      background-color: red;
+      margin: 0 auto;
+    }
+
+    .arrow .head {
+      width: 0;
+      height: 0;
+      margin: 0 auto;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 15px solid red;
+    }
+  </style>
+</head>
 <body>
-  <div id="timeline"></div>
+  <h1>風向モニター</h1>
+  <p id="info">データ取得中...</p>
+  <div class="compass">
+    <div class="arrow" id="arrow">
+      <div class="shaft" id="shaft"></div>
+      <div class="head"></div>
+    </div>
+  </div>
 
   <script>
     const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URL
 
     fetch(apiUrl)
-      .then(response => response.json())
+      .then(res => res.json())
       .then(data => {
-        console.log("取得したデータ：", data);
+        const deg = data.windDeg || 0;
+        const speed = data.windSpeed || 0;
+        const humidity = data.humidity ?? '–';
+        const description = data.description ?? '不明';
+        const time = new Date(data.timestamp).toLocaleString();
 
-        if (!Array.isArray(data)) {
-          document.getElementById("timeline").textContent = "データが配列ではありません";
-          return;
-        }
+        // 回転
+        const arrow = document.getElementById('arrow');
+        arrow.style.transform = `rotate(${deg}deg)`;
 
-        data.forEach(item => {
-          const div = document.createElement("div");
-          div.textContent = `${item.timestamp} / ${item.windDeg}°`;
-          document.getElementById("timeline").appendChild(div);
-        });
+        // 太さ調整（風速によってシャフトの太さを変える）
+        const shaft = document.getElementById('shaft');
+        const thickness = Math.max(4, Math.min(speed * 2, 20)); // 4〜20px
+        shaft.style.width = `${thickness}px`;
+
+        // テキスト
+        const info = `風向: ${deg}°　風速: ${speed.toFixed(1)} m/s　天気: ${description}　湿度: ${humidity}%（${time}）`;
+        document.getElementById('info').textContent = info;
       })
       .catch(err => {
-        console.error("エラー：", err);
-        document.getElementById("timeline").textContent = "データ取得エラー";
+        document.getElementById('info').textContent = "データ取得エラー：" + err;
       });
   </script>
 </body>
+</html>
