@@ -43,7 +43,7 @@
   <script>
     const urlParams = new URLSearchParams(window.location.search);
     const date = urlParams.get('date') || new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replaceAll('/', '/');
-    const apiUrl = `https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxxxxxxx/exec?date=${date}`;
+    const apiUrl = `https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec?date=${date}`;
 
     const highlightDir = deg => deg >= 22.5 && deg <= 67.5;
     const getColor = speed => {
