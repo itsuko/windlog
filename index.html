@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向タイムライン</title>
+  <title>風向ビジュアライザー</title>
   <style>
     body {
       font-family: sans-serif;
@@ -11,23 +11,24 @@
     }
 
     h2 {
-      margin-bottom: 0.2em;
+      margin-bottom: 10px;
     }
 
-    .nav-links {
+    .nav {
       margin-bottom: 20px;
     }
 
     .section-title {
-      margin: 20px 0 10px;
       font-weight: bold;
+      margin-top: 20px;
     }
 
     .timeline {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
       justify-content: center;
+      gap: 10px;
+      margin-top: 10px;
     }
 
     .entry {
@@ -54,118 +55,108 @@
     }
 
     .icon {
-      margin-top: 2px;
       width: 30px;
       height: 30px;
+      margin-top: 3px;
+    }
+
+    .timestamp {
+      margin-top: 2px;
     }
   </style>
 </head>
 <body>
-  <h2 id="date-title">風向タイムライン</h2>
-  <div class="nav-links">
-    <a href="#" id="prev-day">← 前日</a>　|　<a href="#" id="next-day">翌日 →</a>
+  <h2 id="title">風向タイムライン</h2>
+  <div class="nav">
+    <a id="prevLink" href="#">← 前日</a>　
+    <a id="nextLink" href="#">翌日 →</a>
   </div>
 
-  <div id="morning-section">
-    <div class="section-title">午前</div>
-    <div class="timeline" id="morning"></div>
-  </div>
-  <div id="afternoon-section">
-    <div class="section-title">午後</div>
-    <div class="timeline" id="afternoon"></div>
-  </div>
+  <div class="section-title">午前</div>
+  <div class="timeline" id="amTimeline"></div>
+
+  <div class="section-title">午後</div>
+  <div class="timeline" id="pmTimeline"></div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URL
+    const apiBase = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script の公開URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const dateParam = urlParams.get('date');
+    const now = new Date();
+    const today = dateParam ? new Date(dateParam) : new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const params = new URLSearchParams(window.location.search);
-    const baseDate = params.get('date') ? new Date(params.get('date')) : new Date();
-    baseDate.setHours(0, 0, 0, 0);
+    const ymd = (d) => d.toISOString().slice(0, 10).replace(/-/g, '/');
 
-    function formatDate(date) {
-      return date.toISOString().split('T')[0];
-    }
+    // 日付表示
+    document.getElementById('title').textContent = `風向タイムライン（${ymd(today)}）`;
 
-    function displayDateTitle(date) {
-      const y = date.getFullYear();
-      const m = date.getMonth() + 1;
-      const d = date.getDate();
-      document.getElementById('date-title').textContent = `${y}年${m}月${d}日 風向タイムライン`;
-    }
+    // リンク設定
+    const prev = new Date(today);
+    prev.setDate(prev.getDate() - 1);
+    document.getElementById('prevLink').href = `?date=${ymd(prev)}`;
 
-    function getDirectionLabel(deg) {
-      return (deg >= 22.5 && deg < 67.5) ? "NE" :
-             (deg >= 67.5 && deg < 112.5) ? "E" :
-             (deg >= 112.5 && deg < 157.5) ? "SE" :
-             (deg >= 157.5 && deg < 202.5) ? "S" :
-             (deg >= 202.5 && deg < 247.5) ? "SW" :
-             (deg >= 247.5 && deg < 292.5) ? "W" :
-             (deg >= 292.5 && deg < 337.5) ? "NW" :
-             "N";
-    }
+    const next = new Date(today);
+    next.setDate(next.getDate() + 1);
+    document.getElementById('nextLink').href = `?date=${ymd(next)}`;
 
-    function isHighlighted(deg) {
-      return deg >= 22.5 && deg < 67.5; // NNE〜ENE範囲
-    }
+    // API呼び出し
+    fetch(`${apiBase}?date=${ymd(today)}`)
+      .then(res => res.json())
+      .then(data => {
+        const amTimeline = document.getElementById('amTimeline');
+        const pmTimeline = document.getElementById('pmTimeline');
 
-    function renderTimeline(data) {
-      const morning = document.getElementById('morning');
-      const afternoon = document.getElementById('afternoon');
+        const highlightDir = (deg) => {
+          const lower = 22.5 + 360; // ENE = 67.5°, NNE = 22.5°
+          const upper = 67.5 + 360;
+          const fixed = (deg + 360) % 360;
+          return fixed >= 22.5 && fixed <= 67.5;
+        };
 
-      const morningData = data.filter(e => new Date(e.timestamp).getHours() < 12);
-      const afternoonData = data.filter(e => new Date(e.timestamp).getHours() >= 12);
+        const padZero = (n) => n.toString().padStart(2, '0');
 
-      function renderEntries(entries, container) {
-        container.innerHTML = '';
-        entries.forEach((entry, index) => {
-          const deg = (entry.windDeg + 180) % 360; // 風下方向
-          const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        data.forEach(entry => {
+          const t = new Date(entry.timestamp);
+          const hour = t.getHours();
+          const minute = t.getMinutes();
+          const timeStr = `${padZero(hour)}:${padZero(minute)}`;
 
-          const div = document.createElement('div');
-          div.className = 'entry';
+          const deg = entry.windDeg ?? 0;
+          const speed = entry.windSpeed ?? 0;
+          const iconCode = entry.iconCode ?? '';
+          const description = entry.description ?? '';
+          const humidity = entry.humidity ?? '–';
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          arrow.style.transform = `rotate(${deg}deg)`;
-          if (isHighlighted(entry.windDeg)) arrow.classList.add('highlight');
+          arrow.style.borderBottomWidth = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
+          arrow.style.transform = `rotate(${(deg + 180) % 360}deg)`; // 風下方向に矢印を向ける
 
-          const timeLabel = document.createElement('div');
-          timeLabel.textContent = time;
+          if (highlightDir(deg)) {
+            arrow.classList.add('highlight');
+          }
 
           const icon = document.createElement('img');
-          icon.src = `https://openweathermap.org/img/wn/${entry.icon}@2x.png`;
           icon.className = 'icon';
+          icon.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+          icon.alt = description;
 
-          div.appendChild(timeLabel);
-          div.appendChild(arrow);
-          div.appendChild(icon);
+          const timeText = document.createElement('div');
+          timeText.className = 'timestamp';
+          timeText.textContent = timeStr;
 
-          container.appendChild(div);
+          const entryDiv = document.createElement('div');
+          entryDiv.className = 'entry';
+          entryDiv.appendChild(arrow);
+          entryDiv.appendChild(timeText);
+          entryDiv.appendChild(icon);
+
+          (hour < 12 ? amTimeline : pmTimeline).appendChild(entryDiv);
         });
-      }
-
-      renderEntries(morningData, morning);
-      renderEntries(afternoonData, afternoon);
-    }
-
-    fetch(`${apiUrl}?date=${formatDate(baseDate)}`)
-      .then(res => res.json())
-      .then(data => {
-        displayDateTitle(baseDate);
-        renderTimeline(data);
       })
       .catch(err => {
-        document.getElementById('date-title').textContent = "データ取得エラー: " + err;
+        document.getElementById('title').textContent = 'データ取得エラー: ' + err;
       });
-
-    // 前日・翌日リンク
-    const prev = new Date(baseDate);
-    prev.setDate(prev.getDate() - 1);
-    document.getElementById('prev-day').href = `?date=${formatDate(prev)}`;
-
-    const next = new Date(baseDate);
-    next.setDate(next.getDate() + 1);
-    document.getElementById('next-day').href = `?date=${formatDate(next)}`;
   </script>
 </body>
 </html>
