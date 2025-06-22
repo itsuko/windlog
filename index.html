@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>風向タイムライン</title>
   <style>
     body {
@@ -10,132 +10,147 @@
       text-align: center;
     }
 
+    h2 {
+      margin-bottom: 10px;
+    }
+
     .section-title {
       font-weight: bold;
-      margin-top: 20px;
-      margin-bottom: 10px;
+      margin: 20px 0 10px;
     }
 
     .timeline {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
       justify-content: center;
+      gap: 10px;
+      margin-bottom: 20px;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 50px;
+      width: 40px;
       font-size: 10px;
     }
 
     .arrow {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      transform-origin: center center;
-      transition: transform 0.3s ease;
-    }
-
-    .shaft {
-      width: 4px;
-      background-color: gray;
-      transition: height 0.3s ease;
-    }
-
-    .head {
+      position: relative;
       width: 0;
       height: 0;
       border-left: 8px solid transparent;
       border-right: 8px solid transparent;
-      border-bottom: 12px solid gray;
+      border-bottom: 20px solid gray;
+      transform-origin: bottom center;
+      transition: all 0.3s ease;
     }
 
-    .highlight .head {
+    .shaft {
+      position: absolute;
+      top: -30px;
+      left: -1px;
+      width: 2px;
+      height: 30px;
+      background: gray;
+    }
+
+    .highlight {
       border-bottom-color: red !important;
-      filter: drop-shadow(0 0 4px orange);
+      filter: drop-shadow(0 0 5px orange);
     }
 
     .timestamp {
-      margin-top: 4px;
+      margin-top: 5px;
     }
 
     .icon {
       width: 30px;
       height: 30px;
-      margin-top: 4px;
+      margin-top: 2px;
+    }
+
+    .nav {
+      margin: 10px 0;
+    }
+
+    .nav a {
+      margin: 0 10px;
+      text-decoration: none;
+      color: blue;
     }
   </style>
 </head>
 <body>
-  <h2>風向タイムライン（当日）</h2>
-  <div id="amSection">
-    <div class="section-title">午前</div>
-    <div class="timeline" id="am1"></div>
-    <div class="timeline" id="am2"></div>
+  <h2>風向タイムライン</h2>
+  <div id="date-label"></div>
+  <div class="nav">
+    <a href="#" id="prev-day">← 前日</a>
+    <a href="#" id="next-day">翌日 →</a>
   </div>
-  <div id="pmSection">
-    <div class="section-title">午後</div>
-    <div class="timeline" id="pm1"></div>
-    <div class="timeline" id="pm2"></div>
-  </div>
+  <div class="section-title">午前</div>
+  <div id="am" class="timeline"></div>
+  <div class="section-title">午後</div>
+  <div id="pm" class="timeline"></div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
+    const apiUrl = 'https://script.google.com/macros/s/＜YOUR_SCRIPT_ID＞/exec';
+    const params = new URLSearchParams(window.location.search);
+    const today = new Date();
+    const offset = parseInt(params.get('offset') || '0', 10);
+    today.setDate(today.getDate() + offset);
 
-    function highlightDir(deg) {
-      return (deg >= 22.5 && deg <= 67.5); // NNE〜ENE
-    }
+    const yyyy = today.getFullYear();
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const dd = String(today.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}/${mm}/${dd}`;
+    const displayStr = `${yyyy}年${mm}月${dd}日`;
+    document.getElementById('date-label').textContent = displayStr;
 
-    function padZero(n) {
-      return n.toString().padStart(2, '0');
-    }
+    document.getElementById('prev-day').href = `?offset=${offset - 1}`;
+    document.getElementById('next-day').href = `?offset=${offset + 1}`;
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const am1 = document.getElementById('am1');
-        const am2 = document.getElementById('am2');
-        const pm1 = document.getElementById('pm1');
-        const pm2 = document.getElementById('pm2');
+        const am = document.getElementById('am');
+        const pm = document.getElementById('pm');
 
-        const today = new Date();
-        const yyyy = today.getFullYear();
-        const mm = padZero(today.getMonth() + 1);
-        const dd = padZero(today.getDate());
-        const todayStr = `${yyyy}/${mm}/${dd}`;
+        const highlightDir = deg => deg >= 22.5 && deg < 67.5;
 
-        const filtered = data.filter(entry => entry.timestamp.startsWith(todayStr));
+        const padZero = num => String(num).padStart(2, '0');
 
-        let amCount = 0, pmCount = 0;
+        const filtered = data.filter(entry => {
+          const d = new Date(entry.timestamp);
+          const ds = `${d.getFullYear()}/${padZero(d.getMonth()+1)}/${padZero(d.getDate())}`;
+          return ds === dateStr;
+        });
 
         filtered.forEach(entry => {
-          const t = new Date(entry.timestamp);
-          const hour = t.getHours();
-          const minute = t.getMinutes();
+          const d = new Date(entry.timestamp);
+          const hour = d.getHours();
+          const minute = d.getMinutes();
           const timeStr = `${padZero(hour)}:${padZero(minute)}`;
-
           const deg = entry.windDeg ?? 0;
           const speed = entry.windSpeed ?? 0;
           const iconCode = entry.iconCode ?? '';
           const description = entry.description ?? '';
+          const humidity = entry.humidity ?? '–';
+
+          const container = hour < 12 ? am : pm;
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
+          arrow.style.borderBottomWidth = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
           arrow.style.transform = `rotate(${(deg + 180) % 360}deg)`;
-          if (highlightDir(deg)) arrow.classList.add('highlight');
+
+          if (highlightDir(deg)) {
+            arrow.classList.add('highlight');
+          }
 
           const shaft = document.createElement('div');
           shaft.className = 'shaft';
-          shaft.style.height = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
-
-          const head = document.createElement('div');
-          head.className = 'head';
-
           arrow.appendChild(shaft);
-          arrow.appendChild(head);
 
           const timeText = document.createElement('div');
           timeText.className = 'timestamp';
@@ -152,17 +167,11 @@
           entryDiv.appendChild(timeText);
           entryDiv.appendChild(icon);
 
-          if (hour < 12) {
-            (amCount < 12 ? am1 : am2).appendChild(entryDiv);
-            amCount++;
-          } else {
-            (pmCount < 12 ? pm1 : pm2).appendChild(entryDiv);
-            pmCount++;
-          }
+          container.appendChild(entryDiv);
         });
       })
       .catch(err => {
-        document.body.innerHTML += '<p style="color:red;">データ取得エラー: ' + err + '</p>';
+        document.getElementById('date-label').textContent = 'データ取得エラー: ' + err;
       });
   </script>
 </body>
