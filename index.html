@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向タイムライン（今日のみ）</title>
+  <title>風向タイムライン</title>
   <style>
     body {
       font-family: sans-serif;
@@ -43,10 +43,14 @@
       border-bottom-color: red !important;
       filter: drop-shadow(0 0 5px orange);
     }
+
+    .timestamp-label {
+      margin-top: 4px;
+    }
   </style>
 </head>
 <body>
-  <h2>風向タイムライン（今日のみ）</h2>
+  <h2 id="title">風向タイムライン（当日）</h2>
 
   <div class="timeline-section">
     <h3>午前</h3>
@@ -59,7 +63,7 @@
   </div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← 差し替えてください
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ←差し替えてください
 
     function isHighlighted(deg) {
       const norm = (deg + 360) % 360;
@@ -73,6 +77,10 @@
         const todayY = now.getFullYear();
         const todayM = now.getMonth();
         const todayD = now.getDate();
+
+        // タイトルに当日の日付を表示
+        document.getElementById("title").textContent =
+          `風向タイムライン（${todayY}年${todayM + 1}月${todayD}日）`;
 
         const amContainer = document.getElementById('timeline-am');
         const pmContainer = document.getElementById('timeline-pm');
@@ -96,11 +104,15 @@
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          if (isHighlighted(deg)) arrow.classList.add('highlight');
-          arrow.style.transform = `rotate(${deg}deg)`;
+          arrow.style.transform = `rotate(${(deg + 180) % 360}deg)`; // 風下向き
+
+          if (isHighlighted(deg)) {
+            arrow.classList.add('highlight');
+          }
 
           const text = document.createElement('div');
           text.textContent = time;
+          text.className = 'timestamp-label';
 
           entryDiv.appendChild(arrow);
           entryDiv.appendChild(text);
