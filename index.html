@@ -138,6 +138,13 @@
 
           const icon = document.createElement('img');
           icon.className = 'icon';
+          if (iconCode) {
+            const icon = document.createElement('img');
+            icon.className = 'icon';
+            icon.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+            icon.alt = description;
+            entryDiv.appendChild(icon);
+  　　　　　}
           icon.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
           icon.alt = description;
 
