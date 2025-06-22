@@ -1,155 +1,149 @@
+<!-- index.html -->
 <!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向モニター</title>
+  <title>風向タイムライン</title>
   <style>
     body {
       font-family: sans-serif;
       padding: 20px;
       text-align: center;
     }
-    h2 {
-      margin-bottom: 10px;
-    }
-    .section {
-      margin-bottom: 40px;
-    }
-    .section h3 {
-      margin-bottom: 5px;
+    .section-title {
+      margin-top: 30px;
+      font-weight: bold;
     }
     .timeline {
-      display: grid;
-      grid-template-columns: repeat(12, 1fr);
+      display: flex;
+      flex-wrap: wrap;
       gap: 10px;
-      justify-items: center;
+      justify-content: center;
     }
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
+      width: 50px;
       font-size: 10px;
     }
-    .arrow-wrapper {
-      position: relative;
-      width: 0;
-      height: 0;
-    }
-    .shaft {
-      width: 4px;
-      background-color: red;
-      position: absolute;
-      bottom: 0;
-      left: -2px;
-      transform-origin: bottom center;
-    }
     .arrow {
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-bottom: 14px solid red;
-      position: absolute;
-      top: -14px;
-      left: -8px;
+      width: 30px;
+      height: 60px;
       transform-origin: center center;
+      transition: transform 0.3s ease;
     }
-    .highlight .arrow {
-      border-bottom-color: orange;
-      filter: drop-shadow(0 0 5px red);
-    }
-    .timestamp {
-      margin-top: 40px;
+    .highlight polygon {
+      fill: red;
     }
     .icon {
-      width: 32px;
-      height: 32px;
-      margin-top: 4px;
+      width: 30px;
+      height: 30px;
+      margin-top: 2px;
+    }
+    .timestamp {
+      margin: 3px 0;
     }
   </style>
 </head>
 <body>
-  <h2 id="date-title"></h2>
-
-  <div class="section">
-    <h3>午前</h3>
-    <div class="timeline" id="am-timeline"></div>
-  </div>
-  <div class="section">
-    <h3>午後</h3>
-    <div class="timeline" id="pm-timeline"></div>
+  <h2 id="date-title">風向タイムライン</h2>
+  <div id="am-title" class="section-title">午前</div>
+  <div class="timeline" id="am-timeline"></div>
+  <div id="pm-title" class="section-title">午後</div>
+  <div class="timeline" id="pm-timeline"></div>
+  <div style="margin-top: 20px">
+    <a id="prev-link" href="#">← 前日</a>　|
+    <a id="next-link" href="#">翌日 →</a>
   </div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
+    const apiBase = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← 置き換えてください
+    const urlParams = new URLSearchParams(window.location.search);
+    const dateParam = urlParams.get('date');
+    const targetDate = dateParam ? new Date(dateParam) : new Date();
+    const yyyy = targetDate.getFullYear();
+    const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(targetDate.getDate()).padStart(2, '0');
+    const dateStr = `${yyyy}-${mm}-${dd}`;
 
-    function padZero(n) {
-      return n < 10 ? '0' + n : n;
-    }
+    document.getElementById('date-title').textContent = `風向タイムライン（${yyyy}年${mm}月${dd}日）`;
+    document.getElementById('prev-link').href = `?date=${yyyy}-${mm}-${String(Number(dd) - 1).padStart(2, '0')}`;
+    document.getElementById('next-link').href = `?date=${yyyy}-${mm}-${String(Number(dd) + 1).padStart(2, '0')}`;
 
     function highlightDir(deg) {
-      return deg >= 22.5 && deg < 67.5; // NNE〜ENE
+      return deg >= 22.5 && deg <= 67.5; // 北北東〜東北東
     }
 
-    fetch(apiUrl)
+    function createArrow(deg, speed, highlight) {
+      const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      svg.setAttribute("viewBox", "0 0 10 50");
+      svg.classList.add('arrow');
+      if (highlight) svg.classList.add('highlight');
+      svg.style.transform = `rotate(${(deg + 180) % 360}deg)`;
+
+      const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      line.setAttribute("x1", "5");
+      line.setAttribute("y1", "0");
+      line.setAttribute("x2", "5");
+      line.setAttribute("y2", "35");
+      line.setAttribute("stroke", "gray");
+      line.setAttribute("stroke-width", Math.max(1.5, Math.min(speed * 0.8, 4)));
+      svg.appendChild(line);
+
+      const head = document.createElementNS("http://www.w3.org/2000/svg", "polygon");
+      head.setAttribute("points", "0,35 10,35 5,50");
+      head.setAttribute("fill", "gray");
+      svg.appendChild(head);
+
+      return svg;
+    }
+
+    fetch(`${apiBase}?date=${dateStr}`)
       .then(res => res.json())
       .then(data => {
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
-        document.getElementById('date-title').textContent = `${todayStr} の風向タイムライン`;
-
-        const amContainer = document.getElementById('am-timeline');
-        const pmContainer = document.getElementById('pm-timeline');
+        const am = document.getElementById('am-timeline');
+        const pm = document.getElementById('pm-timeline');
 
         data.forEach(entry => {
           const t = new Date(entry.timestamp);
-          if (t.getFullYear() !== today.getFullYear() ||
-              t.getMonth() !== today.getMonth() ||
-              t.getDate() !== today.getDate()) return;
+          if (t.toISOString().slice(0, 10) !== dateStr) return;
 
           const hour = t.getHours();
           const minute = t.getMinutes();
-          const timeStr = `${padZero(hour)}:${padZero(minute)}`;
+          const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 
           const deg = entry.windDeg ?? 0;
           const speed = entry.windSpeed ?? 0;
           const iconCode = entry.iconCode ?? '';
           const description = entry.description ?? '';
 
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'entry';
-          if (highlightDir(deg)) entryDiv.classList.add('highlight');
+          const div = document.createElement('div');
+          div.className = 'entry';
 
-          const wrapper = document.createElement('div');
-          wrapper.className = 'arrow-wrapper';
-
-          const shaft = document.createElement('div');
-          shaft.className = 'shaft';
-          shaft.style.height = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
-          shaft.style.transform = `rotate(${(deg + 180) % 360}deg)`;
-
-          const arrow = document.createElement('div');
-          arrow.className = 'arrow';
-          arrow.style.transform = `rotate(${(deg + 180) % 360}deg)`;
-
-          wrapper.appendChild(shaft);
-          wrapper.appendChild(arrow);
-
-          const timestamp = document.createElement('div');
-          timestamp.className = 'timestamp';
-          timestamp.textContent = timeStr;
+          const arrow = createArrow(deg, speed, highlightDir(deg));
+          const time = document.createElement('div');
+          time.className = 'timestamp';
+          time.textContent = timeStr;
 
           const icon = document.createElement('img');
           icon.className = 'icon';
           icon.src = `https://openweathermap.org/img/wn/${iconCode}.png`;
           icon.alt = description;
 
-          entryDiv.appendChild(wrapper);
-          entryDiv.appendChild(timestamp);
-          entryDiv.appendChild(icon);
+          div.appendChild(arrow);
+          div.appendChild(time);
+          div.appendChild(icon);
 
-          (hour < 12 ? amContainer : pmContainer).appendChild(entryDiv);
+          if (hour < 12) {
+            am.appendChild(div);
+          } else {
+            pm.appendChild(div);
+          }
         });
+      })
+      .catch(err => {
+        document.getElementById('date-title').textContent = 'データ取得エラー: ' + err;
       });
   </script>
 </body>
