@@ -10,19 +10,21 @@
       text-align: center;
     }
 
-    .timeline {
-      display: flex;
-      flex-wrap: wrap;
+    h2 {
+      margin-bottom: 10px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(4, 60px);
+      gap: 10px;
       justify-content: center;
-      gap: 15px;
-      margin-top: 20px;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 40px;
       font-size: 10px;
     }
 
@@ -33,95 +35,65 @@
       border-right: 8px solid transparent;
       border-bottom: 20px solid gray;
       transform-origin: bottom center;
-      transition: all 0.3s ease;
+      margin-bottom: 5px;
     }
 
     .highlight {
       border-bottom-color: red !important;
-      filter: drop-shadow(0 0 4px orange);
-    }
-
-    .controls {
-      margin-bottom: 15px;
+      filter: drop-shadow(0 0 5px orange);
     }
   </style>
 </head>
 <body>
   <h2 id="title">風向タイムライン</h2>
-
-  <div class="controls">
-    <button onclick="moveDate(-1)">← 前日</button>
-    <button onclick="moveDate(1)">翌日 →</button>
-  </div>
-
-  <div class="timeline" id="timeline">読み込み中...</div>
+  <div class="grid" id="timeline"></div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URLに置き換えてください
-
-    const urlParams = new URLSearchParams(window.location.search);
     const today = new Date();
-    const dateStr = urlParams.get("date") || today.toISOString().split("T")[0];
-    const dateObj = new Date(dateStr);
-    const title = document.getElementById("title");
+    const dateString = today.toISOString().split("T")[0]; // YYYY-MM-DD
+    document.getElementById("title").textContent = `${dateString} の風向タイムライン`;
 
-    // タイトルに日付を反映
-    title.textContent = `風向タイムライン（${dateObj.getFullYear()}年${dateObj.getMonth() + 1}月${dateObj.getDate()}日）`;
+    const apiUrl = `https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec?date=${dateString}`; // ← 公開URLに変更
 
-    // データ取得
-    fetch(`${apiUrl}?date=${dateStr}`)
+    function isHighlight(deg) {
+      // 北北東（22.5）〜東北東（67.5） → 風下は南南西〜西南西
+      return deg >= 22.5 && deg <= 67.5;
+    }
+
+    fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
         const container = document.getElementById('timeline');
-        container.innerHTML = '';
 
-        if (!Array.isArray(data) || data.length === 0) {
-          container.textContent = 'データがありません';
-          return;
-        }
+        // ソート：昇順（古い順）
+        const sorted = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 
-        data.forEach(entry => {
-          const deg = (entry.windDeg + 180) % 360; // 風下方向へ
-          const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-
-          const highlight = isHighlightedDirection((entry.windDeg + 180) % 360);
+        sorted.forEach(entry => {
+          const deg = (entry.windDeg + 180) % 360; // 風下に向ける
+          const rawTime = new Date(entry.timestamp);
+          const hour = rawTime.getHours();
+          const time = rawTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
           const entryDiv = document.createElement('div');
           entryDiv.className = 'entry';
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          if (highlight) arrow.classList.add('highlight');
           arrow.style.transform = `rotate(${deg}deg)`;
 
-          const text = document.createElement('div');
-          text.style.marginTop = '5px';
-          text.textContent = time;
+          if (isHighlight((entry.windDeg % 360))) arrow.classList.add('highlight');
+
+          const label = document.createElement('div');
+          label.textContent = time;
 
           entryDiv.appendChild(arrow);
-          entryDiv.appendChild(text);
+          entryDiv.appendChild(label);
           container.appendChild(entryDiv);
         });
       })
       .catch(err => {
         document.getElementById('timeline').textContent = "データ取得エラー：" + err;
       });
-
-    // 前日・翌日リンク
-    function moveDate(offsetDays) {
-      const movedDate = new Date(dateObj);
-      movedDate.setDate(movedDate.getDate() + offsetDays);
-      const y = movedDate.getFullYear();
-      const m = String(movedDate.getMonth() + 1).padStart(2, '0');
-      const d = String(movedDate.getDate()).padStart(2, '0');
-      const newDateStr = `${y}-${m}-${d}`;
-      window.location.search = `?date=${newDateStr}`;
-    }
-
-    // 北北東〜東北東（0〜67.5度）をハイライト
-    function isHighlightedDirection(deg) {
-      return (deg >= 0 && deg < 67.5);
-    }
   </script>
 </body>
 </html>
