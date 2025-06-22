@@ -19,19 +19,18 @@
     }
 
     .timeline {
-      display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
       gap: 10px;
       max-width: 800px;
       margin: 0 auto;
+      justify-items: center;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 40px;
       font-size: 10px;
     }
 
@@ -79,15 +78,16 @@
 
     const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec?date=' + targetDate;
 
-    // 北北東〜東北東（22.5〜67.5°）を強調
     function shouldHighlight(deg) {
-      return deg >= 22.5 && deg < 67.5;
+      return deg >= 22.5 && deg < 67.5; // 北北東〜東北東
     }
 
     function renderTimeline(containerId, entries) {
       const container = document.getElementById(containerId);
+      container.innerHTML = ''; // 初期化
       entries.forEach(entry => {
-        const deg = (entry.windDeg + 180) % 360; // 風下向きに修正
+        const originalDeg = entry.windDeg;
+        const deg = (originalDeg + 180) % 360; // 風下向け
         const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
         const entryDiv = document.createElement('div');
@@ -95,12 +95,12 @@
 
         const arrow = document.createElement('div');
         arrow.className = 'arrow';
-        if (shouldHighlight(deg)) arrow.classList.add('highlight');
         arrow.style.transform = `rotate(${deg}deg)`;
+        if (shouldHighlight(originalDeg)) arrow.classList.add('highlight');
 
         const label = document.createElement('div');
         label.textContent = time;
-        label.style.marginTop = "4px";  // 矢印との間隔を確保
+        label.style.marginTop = '4px';
 
         entryDiv.appendChild(arrow);
         entryDiv.appendChild(label);
@@ -116,7 +116,6 @@
         renderTimeline('am-timeline', am);
         renderTimeline('pm-timeline', pm);
 
-        // 前日・翌日リンクの生成
         const dateObj = new Date(targetDate);
         const prev = new Date(dateObj); prev.setDate(prev.getDate() - 1);
         const next = new Date(dateObj); next.setDate(next.getDate() + 1);
@@ -129,4 +128,3 @@
   </script>
 </body>
 </html>
-
