@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8">
   <title>風向タイムライン</title>
   <style>
     body {
@@ -15,16 +15,16 @@
     }
 
     .section-title {
+      margin: 20px 0 5px;
       font-weight: bold;
-      margin: 20px 0 10px;
+      font-size: 14px;
     }
 
     .timeline {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
       gap: 10px;
-      margin-bottom: 20px;
+      justify-content: center;
     }
 
     .entry {
@@ -36,7 +36,6 @@
     }
 
     .arrow {
-      position: relative;
       width: 0;
       height: 0;
       border-left: 8px solid transparent;
@@ -47,12 +46,10 @@
     }
 
     .shaft {
-      position: absolute;
-      top: -30px;
-      left: -1px;
       width: 2px;
       height: 30px;
       background: gray;
+      margin-bottom: 2px;
     }
 
     .highlight {
@@ -61,7 +58,7 @@
     }
 
     .timestamp {
-      margin-top: 5px;
+      margin-top: 2px;
     }
 
     .icon {
@@ -69,75 +66,63 @@
       height: 30px;
       margin-top: 2px;
     }
-
-    .nav {
-      margin: 10px 0;
-    }
-
-    .nav a {
-      margin: 0 10px;
-      text-decoration: none;
-      color: blue;
-    }
   </style>
 </head>
 <body>
-  <h2>風向タイムライン</h2>
-  <div id="date-label"></div>
-  <div class="nav">
-    <a href="#" id="prev-day">← 前日</a>
-    <a href="#" id="next-day">翌日 →</a>
-  </div>
+  <h2 id="dateHeader"></h2>
   <div class="section-title">午前</div>
-  <div id="am" class="timeline"></div>
+  <div class="timeline" id="am-timeline"></div>
   <div class="section-title">午後</div>
-  <div id="pm" class="timeline"></div>
+  <div class="timeline" id="pm-timeline"></div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
-    const params = new URLSearchParams(window.location.search);
-    const today = new Date();
-    const offset = parseInt(params.get('offset') || '0', 10);
-    today.setDate(today.getDate() + offset);
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ←公開URL
 
-    const yyyy = today.getFullYear();
-    const mm = String(today.getMonth() + 1).padStart(2, '0');
-    const dd = String(today.getDate()).padStart(2, '0');
-    const dateStr = `${yyyy}/${mm}/${dd}`;
-    const displayStr = `${yyyy}年${mm}月${dd}日`;
-    document.getElementById('date-label').textContent = displayStr;
+    function padZero(n) {
+      return n.toString().padStart(2, '0');
+    }
 
-    document.getElementById('prev-day').href = `?offset=${offset - 1}`;
-    document.getElementById('next-day').href = `?offset=${offset + 1}`;
+    function highlightDir(deg) {
+      return deg >= 22.5 && deg < 67.5; // NNE〜ENE
+    }
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const am = document.getElementById('am');
-        const pm = document.getElementById('pm');
+        const amContainer = document.getElementById('am-timeline');
+        const pmContainer = document.getElementById('pm-timeline');
 
-        const highlightDir = deg => deg >= 22.5 && deg < 67.5;
+        const today = new Date();
+        const todayStr = `${today.getFullYear()}年${padZero(today.getMonth() + 1)}月${padZero(today.getDate())}日`;
+        document.getElementById('dateHeader').textContent = `風向タイムライン：${todayStr}`;
 
-        const padZero = num => String(num).padStart(2, '0');
+        const amEntries = [];
+        const pmEntries = [];
 
-        const filtered = data.filter(entry => {
-          const d = new Date(entry.timestamp);
-          const ds = `${d.getFullYear()}/${padZero(d.getMonth()+1)}/${padZero(d.getDate())}`;
-          return ds === dateStr;
-        });
+        data.forEach(entry => {
+          const t = new Date(entry.timestamp);
+          if (t.getFullYear() !== today.getFullYear() ||
+              t.getMonth() !== today.getMonth() ||
+              t.getDate() !== today.getDate()) return;
 
-        filtered.forEach(entry => {
-          const d = new Date(entry.timestamp);
-          const hour = d.getHours();
-          const minute = d.getMinutes();
+          const hour = t.getHours();
+          const minute = t.getMinutes();
           const timeStr = `${padZero(hour)}:${padZero(minute)}`;
+
           const deg = entry.windDeg ?? 0;
           const speed = entry.windSpeed ?? 0;
           const iconCode = entry.iconCode ?? '';
           const description = entry.description ?? '';
-          const humidity = entry.humidity ?? '–';
 
-          const container = hour < 12 ? am : pm;
+          const arrowWrapper = document.createElement('div');
+          arrowWrapper.style.position = 'relative';
+          arrowWrapper.style.display = 'flex';
+          arrowWrapper.style.flexDirection = 'column';
+          arrowWrapper.style.alignItems = 'center';
+
+          const shaft = document.createElement('div');
+          shaft.className = 'shaft';
+          shaft.style.transform = `rotate(${deg % 360}deg)`;
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
@@ -148,9 +133,8 @@
             arrow.classList.add('highlight');
           }
 
-          const shaft = document.createElement('div');
-          shaft.className = 'shaft';
-          arrow.appendChild(shaft);
+          arrowWrapper.appendChild(shaft);
+          arrowWrapper.appendChild(arrow);
 
           const timeText = document.createElement('div');
           timeText.className = 'timestamp';
@@ -163,15 +147,36 @@
 
           const entryDiv = document.createElement('div');
           entryDiv.className = 'entry';
-          entryDiv.appendChild(arrow);
+          entryDiv.appendChild(arrowWrapper);
           entryDiv.appendChild(timeText);
           entryDiv.appendChild(icon);
 
-          container.appendChild(entryDiv);
+          if (hour < 12) {
+            amEntries.push(entryDiv);
+          } else {
+            pmEntries.push(entryDiv);
+          }
         });
+
+        const splitIntoTwoRows = (entries, container) => {
+          const half = Math.ceil(entries.length / 2);
+          const row1 = document.createElement('div');
+          row1.className = 'timeline';
+          const row2 = document.createElement('div');
+          row2.className = 'timeline';
+
+          entries.slice(0, half).forEach(el => row1.appendChild(el));
+          entries.slice(half).forEach(el => row2.appendChild(el));
+
+          container.appendChild(row1);
+          container.appendChild(row2);
+        };
+
+        splitIntoTwoRows(amEntries, amContainer);
+        splitIntoTwoRows(pmEntries, pmContainer);
       })
       .catch(err => {
-        document.getElementById('date-label').textContent = 'データ取得エラー: ' + err;
+        document.getElementById('dateHeader').textContent = 'データ取得エラー: ' + err;
       });
   </script>
 </body>
