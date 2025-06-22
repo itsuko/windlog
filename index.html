@@ -63,6 +63,36 @@
   </div>
 
   <script>
+    function getTargetDate() {
+      const params = new URLSearchParams(window.location.search);
+      const dateStr = params.get("date");
+      if (dateStr) return new Date(dateStr);
+      return new Date(); // 今日
+    }
+
+    const targetDate = getTargetDate();
+    const todayY = targetDate.getFullYear();
+    const todayM = targetDate.getMonth();
+    const todayD = targetDate.getDate();
+
+    // 表示用タイトル更新
+    const days = ['日', '月', '火', '水', '木', '金', '土'];
+    const dow = days[targetDate.getDay()];
+    document.getElementById("title").textContent =
+      `風向タイムライン（${todayY}年${todayM + 1}月${todayD}日・${dow}）`;
+
+    // 前日・翌日リンク設定
+    const prevDate = new Date(targetDate);
+    prevDate.setDate(targetDate.getDate() - 1);
+    const nextDate = new Date(targetDate);
+    nextDate.setDate(targetDate.getDate() + 1);
+
+    document.getElementById("prevDay").onclick = () => {
+      window.location.search = `?date=${prevDate.toISOString().split('T')[0]}`;
+    };
+    document.getElementById("nextDay").onclick = () => {
+      window.location.search = `?date=${nextDate.toISOString().split('T')[0]}`;
+    };
     const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ←差し替えてください
 
     function isHighlighted(deg) {
