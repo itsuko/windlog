@@ -2,47 +2,50 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向と天気タイムライン</title>
+  <title>風向タイムライン</title>
   <style>
     body {
       font-family: sans-serif;
-      text-align: center;
       padding: 20px;
+      text-align: center;
     }
 
     h2 {
-      margin-bottom: 10px;
+      margin-bottom: 0.2em;
     }
 
-    .timeline-container {
-      display: flex;
-      flex-direction: column;
-      gap: 20px;
+    .nav-links {
+      margin-bottom: 20px;
     }
 
-    .timeline-row {
+    .section-title {
+      margin: 20px 0 10px;
+      font-weight: bold;
+    }
+
+    .timeline {
       display: flex;
       flex-wrap: wrap;
-      justify-content: center;
       gap: 10px;
+      justify-content: center;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 50px;
+      width: 40px;
       font-size: 10px;
     }
 
     .arrow {
       width: 0;
       height: 0;
-      border-left: 10px solid transparent;
-      border-right: 10px solid transparent;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
       border-bottom: 20px solid gray;
       transform-origin: bottom center;
-      transition: transform 0.3s ease;
+      transition: all 0.3s ease;
     }
 
     .highlight {
@@ -51,85 +54,118 @@
     }
 
     .icon {
-      width: 40px;
-      height: 40px;
-    }
-
-    .date-header {
-      font-weight: bold;
-      margin-bottom: 5px;
+      margin-top: 2px;
+      width: 30px;
+      height: 30px;
     }
   </style>
 </head>
 <body>
-  <h2>風向と天気タイムライン</h2>
-  <div id="dateLabel" class="date-header"></div>
-  <div class="timeline-container">
-    <div class="timeline-row" id="amRow"></div>
-    <div class="timeline-row" id="pmRow"></div>
+  <h2 id="date-title">風向タイムライン</h2>
+  <div class="nav-links">
+    <a href="#" id="prev-day">← 前日</a>　|　<a href="#" id="next-day">翌日 →</a>
+  </div>
+
+  <div id="morning-section">
+    <div class="section-title">午前</div>
+    <div class="timeline" id="morning"></div>
+  </div>
+  <div id="afternoon-section">
+    <div class="section-title">午後</div>
+    <div class="timeline" id="afternoon"></div>
   </div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // Apps Script 公開URLに差し替え
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URL
 
-    function isNorthEastDirection(deg) {
-      return (deg >= 22.5 && deg < 67.5); // NNE〜ENE
+    const params = new URLSearchParams(window.location.search);
+    const baseDate = params.get('date') ? new Date(params.get('date')) : new Date();
+    baseDate.setHours(0, 0, 0, 0);
+
+    function formatDate(date) {
+      return date.toISOString().split('T')[0];
     }
 
-    fetch(apiUrl)
-      .then(res => res.json())
-      .then(data => {
-        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-        const todayData = data.filter(entry => entry.timestamp.startsWith(today));
+    function displayDateTitle(date) {
+      const y = date.getFullYear();
+      const m = date.getMonth() + 1;
+      const d = date.getDate();
+      document.getElementById('date-title').textContent = `${y}年${m}月${d}日 風向タイムライン`;
+    }
 
-        // 日付ラベルを表示
-        const displayDate = new Date(todayData[0]?.timestamp).toLocaleDateString();
-        document.getElementById('dateLabel').textContent = `${displayDate} の風向・天気`;
+    function getDirectionLabel(deg) {
+      return (deg >= 22.5 && deg < 67.5) ? "NE" :
+             (deg >= 67.5 && deg < 112.5) ? "E" :
+             (deg >= 112.5 && deg < 157.5) ? "SE" :
+             (deg >= 157.5 && deg < 202.5) ? "S" :
+             (deg >= 202.5 && deg < 247.5) ? "SW" :
+             (deg >= 247.5 && deg < 292.5) ? "W" :
+             (deg >= 292.5 && deg < 337.5) ? "NW" :
+             "N";
+    }
 
-        const amRow = document.getElementById('amRow');
-        const pmRow = document.getElementById('pmRow');
+    function isHighlighted(deg) {
+      return deg >= 22.5 && deg < 67.5; // NNE〜ENE範囲
+    }
 
-        todayData.forEach(entry => {
-          const time = new Date(entry.timestamp);
-          const hour = time.getHours();
-          const timeStr = time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    function renderTimeline(data) {
+      const morning = document.getElementById('morning');
+      const afternoon = document.getElementById('afternoon');
 
-          const windDeg = (parseFloat(entry.windDeg) + 180) % 360; // 風下向きに変換
-          const windSpeed = parseFloat(entry.windSpeed);
-          const iconCode = entry.icon;
-          const iconUrl = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
+      const morningData = data.filter(e => new Date(e.timestamp).getHours() < 12);
+      const afternoonData = data.filter(e => new Date(e.timestamp).getHours() >= 12);
 
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'entry';
+      function renderEntries(entries, container) {
+        container.innerHTML = '';
+        entries.forEach((entry, index) => {
+          const deg = (entry.windDeg + 180) % 360; // 風下方向
+          const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+          const div = document.createElement('div');
+          div.className = 'entry';
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          arrow.style.borderBottomWidth = `${8 + windSpeed * 2}px`; // 風速に応じて太く
-          arrow.style.transform = `rotate(${windDeg}deg)`;
-          if (isNorthEastDirection(windDeg)) arrow.classList.add('highlight');
-
-          const iconImg = document.createElement('img');
-          iconImg.className = 'icon';
-          iconImg.src = iconUrl;
-          iconImg.alt = entry.description ?? '';
+          arrow.style.transform = `rotate(${deg}deg)`;
+          if (isHighlighted(entry.windDeg)) arrow.classList.add('highlight');
 
           const timeLabel = document.createElement('div');
-          timeLabel.textContent = timeStr;
+          timeLabel.textContent = time;
 
-          entryDiv.appendChild(arrow);
-          entryDiv.appendChild(iconImg);
-          entryDiv.appendChild(timeLabel);
+          const icon = document.createElement('img');
+          icon.src = `https://openweathermap.org/img/wn/${entry.icon}@2x.png`;
+          icon.className = 'icon';
 
-          if (hour < 12) {
-            amRow.appendChild(entryDiv);
-          } else {
-            pmRow.appendChild(entryDiv);
-          }
+          div.appendChild(timeLabel);
+          div.appendChild(arrow);
+          div.appendChild(icon);
+
+          container.appendChild(div);
         });
+      }
+
+      renderEntries(morningData, morning);
+      renderEntries(afternoonData, afternoon);
+    }
+
+    fetch(`${apiUrl}?date=${formatDate(baseDate)}`)
+      .then(res => res.json())
+      .then(data => {
+        displayDateTitle(baseDate);
+        renderTimeline(data);
       })
       .catch(err => {
-        document.body.innerHTML += `<p style="color:red;">データ取得エラー: ${err}</p>`;
+        document.getElementById('date-title').textContent = "データ取得エラー: " + err;
       });
+
+    // 前日・翌日リンク
+    const prev = new Date(baseDate);
+    prev.setDate(prev.getDate() - 1);
+    document.getElementById('prev-day').href = `?date=${formatDate(prev)}`;
+
+    const next = new Date(baseDate);
+    next.setDate(next.getDate() + 1);
+    document.getElementById('next-day').href = `?date=${formatDate(next)}`;
   </script>
 </body>
 </html>
