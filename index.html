@@ -11,21 +11,30 @@
     }
 
     h2 {
-      margin-bottom: 10px;
+      margin-bottom: 5px;
     }
 
-    .grid {
+    .date-nav {
+      margin: 10px;
+    }
+
+    .section {
+      margin-top: 20px;
+    }
+
+    .timeline {
       display: grid;
-      grid-template-columns: repeat(4, 60px);
+      grid-template-columns: repeat(4, 1fr);
       gap: 10px;
-      justify-content: center;
+      justify-items: center;
+      margin-bottom: 20px;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .arrow {
@@ -35,64 +44,99 @@
       border-right: 8px solid transparent;
       border-bottom: 20px solid gray;
       transform-origin: bottom center;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
     }
 
     .highlight {
       border-bottom-color: red !important;
       filter: drop-shadow(0 0 5px orange);
     }
+
+    .date-string {
+      font-weight: bold;
+      margin: 10px 0;
+    }
   </style>
 </head>
 <body>
-  <h2 id="title">風向タイムライン</h2>
-  <div class="grid" id="timeline"></div>
+  <h2>風向タイムライン</h2>
+  <div class="date-nav">
+    <a id="prevLink" href="#">← 前日</a>　
+    <span class="date-string" id="dateText"></span>　
+    <a id="nextLink" href="#">翌日 →</a>
+  </div>
+
+  <div class="section">
+    <h3>午前</h3>
+    <div class="timeline" id="amTimeline1"></div>
+    <div class="timeline" id="amTimeline2"></div>
+  </div>
+
+  <div class="section">
+    <h3>午後</h3>
+    <div class="timeline" id="pmTimeline1"></div>
+    <div class="timeline" id="pmTimeline2"></div>
+  </div>
 
   <script>
+    const apiBase = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // 置き換え
+    const params = new URLSearchParams(window.location.search);
     const today = new Date();
-    const dateString = today.toISOString().split("T")[0]; // YYYY-MM-DD
-    document.getElementById("title").textContent = `${dateString} の風向タイムライン`;
+    const offset = parseInt(params.get("offset") || "0");
+    today.setDate(today.getDate() + offset);
+    const yyyyMMdd = today.toISOString().split('T')[0];
 
-    const apiUrl = `https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec?date=${dateString}`; // ← 公開URLに変更
+    // 日付の表示
+    const dateText = document.getElementById("dateText");
+    dateText.textContent = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
 
-    function isHighlight(deg) {
-      // 北北東（22.5）〜東北東（67.5） → 風下は南南西〜西南西
-      return deg >= 22.5 && deg <= 67.5;
+    // 前日・翌日リンク
+    document.getElementById("prevLink").href = `?offset=${offset - 1}`;
+    document.getElementById("nextLink").href = `?offset=${offset + 1}`;
+
+    function getLabelIfNorthEast(deg) {
+      // 北北東〜東北東：22.5〜67.5°
+      if (deg >= 22.5 && deg <= 67.5) return "NE";
+      return null;
     }
 
-    fetch(apiUrl)
+    fetch(`${apiBase}?date=${yyyyMMdd}`)
       .then(res => res.json())
       .then(data => {
-        const container = document.getElementById('timeline');
+        const am1 = document.getElementById("amTimeline1");
+        const am2 = document.getElementById("amTimeline2");
+        const pm1 = document.getElementById("pmTimeline1");
+        const pm2 = document.getElementById("pmTimeline2");
 
-        // ソート：昇順（古い順）
-        const sorted = data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+        data.forEach((entry, i) => {
+          const date = new Date(entry.timestamp);
+          const hour = date.getHours();
+          const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const deg = (entry.windDeg + 180) % 360; // ← 風下に回転
 
-        sorted.forEach(entry => {
-          const deg = (entry.windDeg + 180) % 360; // 風下に向ける
-          const rawTime = new Date(entry.timestamp);
-          const hour = rawTime.getHours();
-          const time = rawTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          const arrowDiv = document.createElement("div");
+          arrowDiv.className = "arrow";
+          arrowDiv.style.transform = `rotate(${deg}deg)`;
 
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'entry';
+          if (getLabelIfNorthEast(deg)) arrowDiv.classList.add("highlight");
 
-          const arrow = document.createElement('div');
-          arrow.className = 'arrow';
-          arrow.style.transform = `rotate(${deg}deg)`;
+          const entryDiv = document.createElement("div");
+          entryDiv.className = "entry";
+          entryDiv.appendChild(arrowDiv);
 
-          if (isHighlight((entry.windDeg % 360))) arrow.classList.add('highlight');
-
-          const label = document.createElement('div');
-          label.textContent = time;
-
-          entryDiv.appendChild(arrow);
+          const label = document.createElement("div");
+          label.textContent = timeStr;
           entryDiv.appendChild(label);
-          container.appendChild(entryDiv);
+
+          if (hour < 12) {
+            (i % 2 === 0 ? am1 : am2).appendChild(entryDiv);
+          } else {
+            (i % 2 === 0 ? pm1 : pm2).appendChild(entryDiv);
+          }
         });
       })
       .catch(err => {
-        document.getElementById('timeline').textContent = "データ取得エラー：" + err;
+        alert("データ取得エラー：" + err);
       });
   </script>
 </body>
