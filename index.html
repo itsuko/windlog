@@ -2,157 +2,88 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向タイムライン</title>
+  <title>風向と天気タイムライン</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 20px;
       text-align: center;
+      padding: 20px;
     }
 
-    .timeline-section {
-      margin-bottom: 40px;
+    h2 {
+      margin-bottom: 10px;
     }
 
-    .timeline {
+    .timeline-container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .timeline-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 10px;
       justify-content: center;
+      gap: 10px;
     }
 
     .entry {
       display: flex;
       flex-direction: column;
       align-items: center;
-      width: 40px;
+      width: 50px;
       font-size: 10px;
     }
 
     .arrow {
       width: 0;
       height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-top: 20px solid gray; /* 初期は風下向き */
-      transform-origin: center center;
-      transition: all 0.3s ease;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 20px solid gray;
+      transform-origin: bottom center;
+      transition: transform 0.3s ease;
     }
 
     .highlight {
-      border-top-color: red !important;
+      border-bottom-color: red !important;
       filter: drop-shadow(0 0 5px orange);
     }
 
     .icon {
-      width: 30px;
-      height: 30px;
-      margin-bottom: 4px;
+      width: 40px;
+      height: 40px;
     }
 
-    .nav {
-      margin: 20px;
-    }
-
-    .nav a {
-      margin: 0 10px;
-      text-decoration: none;
-      color: blue;
+    .date-header {
+      font-weight: bold;
+      margin-bottom: 5px;
     }
   </style>
 </head>
 <body>
-  <h2 id="title">風向タイムライン</h2>
-  <div class="nav">
-    <a href="#" id="prev-day">← 前日</a>
-    <a href="#" id="next-day">翌日 →</a>
-  </div>
-  <div class="timeline-section">
-    <h3>午前</h3>
-    <div class="timeline" id="am-timeline"></div>
-  </div>
-  <div class="timeline-section">
-    <h3>午後</h3>
-    <div class="timeline" id="pm-timeline"></div>
+  <h2>風向と天気タイムライン</h2>
+  <div id="dateLabel" class="date-header"></div>
+  <div class="timeline-container">
+    <div class="timeline-row" id="amRow"></div>
+    <div class="timeline-row" id="pmRow"></div>
   </div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← 公開URLに差し替え
-    const highlightRanges = [0, 45]; // 北北東〜東北東を強調
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // Apps Script 公開URLに差し替え
 
-    function isHighlighted(deg) {
-      return (deg >= 0 && deg <= 45) || (deg >= 360 + 0 && deg <= 360 + 45);
-    }
-
-    function getWeatherIcon(desc) {
-      const icons = {
-        'clear': '☀️',
-        'clouds': '☁️',
-        'rain': '🌧️',
-        'snow': '❄️',
-        'thunderstorm': '⛈️',
-        'drizzle': '🌦️',
-        'mist': '🌫️'
-      };
-      const key = Object.keys(icons).find(k => desc.includes(k));
-      return key ? icons[key] : '🌈';
+    function isNorthEastDirection(deg) {
+      return (deg >= 22.5 && deg < 67.5); // NNE〜ENE
     }
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const am = data.filter(d => new Date(d.timestamp).getHours() < 12);
-        const pm = data.filter(d => new Date(d.timestamp).getHours() >= 12);
+        const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+        const todayData = data.filter(entry => entry.timestamp.startsWith(today));
 
-        const render = (entries, containerId) => {
-          const container = document.getElementById(containerId);
-          entries.forEach((entry, i) => {
-            const deg = entry.windDeg + 180; // 風下方向
-            const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const speed = entry.windSpeed || 0;
-            const desc = entry.description || '';
-            const icon = getWeatherIcon(desc.toLowerCase());
+        // 日付ラベルを表示
+        const displayDate = new Date(todayData[0]?.timestamp).toLocaleDateString();
+        document.getElementById('dateLabel').textContent = `${displayDate} の風向・天気`;
 
-            const entryDiv = document.createElement('div');
-            entryDiv.className = 'entry';
-
-            const weather = document.createElement('div');
-            weather.textContent = icon;
-            weather.className = 'icon';
-
-            const arrow = document.createElement('div');
-            arrow.className = 'arrow';
-            arrow.style.transform = `rotate(${deg % 360}deg)`;
-            arrow.style.borderTopWidth = `${10 + speed * 2}px`; // 風速でサイズ調整
-            if (isHighlighted((deg + 180) % 360)) arrow.classList.add('highlight');
-
-            const text = document.createElement('div');
-            text.textContent = time;
-
-            entryDiv.appendChild(weather);
-            entryDiv.appendChild(arrow);
-            entryDiv.appendChild(text);
-            container.appendChild(entryDiv);
-          });
-        };
-
-        render(am, 'am-timeline');
-        render(pm, 'pm-timeline');
-
-        // タイトルの日付表示
-        const today = new Date(data[0].timestamp);
-        const yyyy = today.getFullYear();
-        const mm = today.getMonth() + 1;
-        const dd = today.getDate();
-        document.getElementById('title').textContent = `風向タイムライン（${yyyy}年${mm}月${dd}日）`;
-
-        // 前日・翌日リンク（仮）
-        document.getElementById('prev-day').href = `?d=${yyyy}-${String(mm).padStart(2, '0')}-${String(dd - 1).padStart(2, '0')}`;
-        document.getElementById('next-day').href = `?d=${yyyy}-${String(mm).padStart(2, '0')}-${String(dd + 1).padStart(2, '0')}`;
-      })
-      .catch(err => {
-        document.body.innerHTML += `<p style="color:red">データ取得エラー: ${err}</p>`;
-      });
-  </script>
-</body>
-</html>
+        const amRow = document.getElem
