@@ -68,57 +68,54 @@
 
   <div class="section">
     <h3>午前</h3>
-    <div class="timeline" id="amTimeline1"></div>
-    <div class="timeline" id="amTimeline2"></div>
+    <div class="timeline" id="amTimeline"></div>
   </div>
 
   <div class="section">
     <h3>午後</h3>
-    <div class="timeline" id="pmTimeline1"></div>
-    <div class="timeline" id="pmTimeline2"></div>
+    <div class="timeline" id="pmTimeline"></div>
   </div>
 
   <script>
-    const apiBase = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // 置き換え
+    const apiBase = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← 置き換えてください
     const params = new URLSearchParams(window.location.search);
     const today = new Date();
     const offset = parseInt(params.get("offset") || "0");
     today.setDate(today.getDate() + offset);
     const yyyyMMdd = today.toISOString().split('T')[0];
 
-    // 日付の表示
+    // 日付表示
     const dateText = document.getElementById("dateText");
     dateText.textContent = `${today.getFullYear()}年${today.getMonth()+1}月${today.getDate()}日`;
 
-    // 前日・翌日リンク
+    // ナビゲーションリンク
     document.getElementById("prevLink").href = `?offset=${offset - 1}`;
     document.getElementById("nextLink").href = `?offset=${offset + 1}`;
 
-    function getLabelIfNorthEast(deg) {
-      // 北北東〜東北東：22.5〜67.5°
-      if (deg >= 22.5 && deg <= 67.5) return "NE";
-      return null;
+    function isNorthEast(deg) {
+      const windDeg = deg % 360;
+      return windDeg >= 22.5 && windDeg <= 67.5;
     }
 
     fetch(`${apiBase}?date=${yyyyMMdd}`)
       .then(res => res.json())
       .then(data => {
-        const am1 = document.getElementById("amTimeline1");
-        const am2 = document.getElementById("amTimeline2");
-        const pm1 = document.getElementById("pmTimeline1");
-        const pm2 = document.getElementById("pmTimeline2");
+        const amTimeline = document.getElementById("amTimeline");
+        const pmTimeline = document.getElementById("pmTimeline");
 
-        data.forEach((entry, i) => {
+        const amData = data.filter(entry => new Date(entry.timestamp).getHours() < 12).slice(0, 8);
+        const pmData = data.filter(entry => new Date(entry.timestamp).getHours() >= 12).slice(0, 8);
+
+        [...amData, ...pmData].forEach(entry => {
           const date = new Date(entry.timestamp);
           const hour = date.getHours();
           const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const deg = (entry.windDeg + 180) % 360; // ← 風下に回転
+          const deg = (entry.windDeg + 180) % 360;
 
           const arrowDiv = document.createElement("div");
           arrowDiv.className = "arrow";
           arrowDiv.style.transform = `rotate(${deg}deg)`;
-
-          if (getLabelIfNorthEast(deg)) arrowDiv.classList.add("highlight");
+          if (isNorthEast(deg)) arrowDiv.classList.add("highlight");
 
           const entryDiv = document.createElement("div");
           entryDiv.className = "entry";
@@ -129,16 +126,11 @@
           entryDiv.appendChild(label);
 
           if (hour < 12) {
-            (i % 2 === 0 ? am1 : am2).appendChild(entryDiv);
+            amTimeline.appendChild(entryDiv);
           } else {
-            (i % 2 === 0 ? pm1 : pm2).appendChild(entryDiv);
+            pmTimeline.appendChild(entryDiv);
           }
         });
       })
       .catch(err => {
-        alert("データ取得エラー：" + err);
-      });
-  </script>
-</body>
-</html>
-
+        a
