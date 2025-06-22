@@ -10,14 +10,8 @@
       text-align: center;
     }
 
-    h2 {
-      margin-bottom: 10px;
-    }
-
-    .section-title {
-      margin: 20px 0 5px;
-      font-weight: bold;
-      font-size: 14px;
+    .section {
+      margin-bottom: 30px;
     }
 
     .timeline {
@@ -35,76 +29,83 @@
       font-size: 10px;
     }
 
+    .arrow-container {
+      position: relative;
+      height: 60px;
+    }
+
+    .shaft {
+      width: 4px;
+      height: 30px;
+      background-color: gray;
+      position: absolute;
+      top: 0;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
     .arrow {
       width: 0;
       height: 0;
       border-left: 8px solid transparent;
       border-right: 8px solid transparent;
-      border-bottom: 20px solid gray;
-      transform-origin: bottom center;
-      transition: all 0.3s ease;
-    }
-
-    .shaft {
-      width: 2px;
-      height: 30px;
-      background: gray;
-      margin-bottom: 2px;
+      border-top: 15px solid gray;
+      position: absolute;
+      top: 30px;
+      left: 50%;
+      transform: translateX(-50%) rotate(0deg);
+      transform-origin: top center;
     }
 
     .highlight {
-      border-bottom-color: red !important;
+      border-top-color: red !important;
       filter: drop-shadow(0 0 5px orange);
     }
 
     .timestamp {
-      margin-top: 2px;
+      margin-top: 5px;
     }
 
     .icon {
       width: 30px;
       height: 30px;
-      margin-top: 2px;
+      margin-top: 5px;
     }
   </style>
 </head>
 <body>
-  <h2 id="dateHeader"></h2>
-  <div class="section-title">午前</div>
-  <div class="timeline" id="am-timeline"></div>
-  <div class="section-title">午後</div>
-  <div class="timeline" id="pm-timeline"></div>
-
+  <h2 id="dateTitle"></h2>
+  <div class="section">
+    <h3>午前</h3>
+    <div class="timeline" id="am"></div>
+  </div>
+  <div class="section">
+    <h3>午後</h3>
+    <div class="timeline" id="pm"></div>
+  </div>
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ←公開URL
+    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URL
 
-    function padZero(n) {
-      return n.toString().padStart(2, '0');
-    }
+    const highlightDir = deg => {
+      return (deg >= 22.5 && deg <= 67.5); // NNE〜ENE
+    };
 
-    function highlightDir(deg) {
-      return deg >= 22.5 && deg < 67.5; // NNE〜ENE
-    }
+    const padZero = n => n.toString().padStart(2, '0');
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const amContainer = document.getElementById('am-timeline');
-        const pmContainer = document.getElementById('pm-timeline');
+        const now = new Date();
+        const yyyy = now.getFullYear();
+        const mm = padZero(now.getMonth() + 1);
+        const dd = padZero(now.getDate());
+        document.getElementById('dateTitle').textContent = `${yyyy}年${mm}月${dd}日 の風向タイムライン`;
 
-        const today = new Date();
-        const todayStr = `${today.getFullYear()}年${padZero(today.getMonth() + 1)}月${padZero(today.getDate())}日`;
-        document.getElementById('dateHeader').textContent = `風向タイムライン：${todayStr}`;
-
-        const amEntries = [];
-        const pmEntries = [];
+        const am = document.getElementById('am');
+        const pm = document.getElementById('pm');
 
         data.forEach(entry => {
           const t = new Date(entry.timestamp);
-          if (t.getFullYear() !== today.getFullYear() ||
-              t.getMonth() !== today.getMonth() ||
-              t.getDate() !== today.getDate()) return;
-
           const hour = t.getHours();
           const minute = t.getMinutes();
           const timeStr = `${padZero(hour)}:${padZero(minute)}`;
@@ -114,27 +115,23 @@
           const iconCode = entry.iconCode ?? '';
           const description = entry.description ?? '';
 
-          const arrowWrapper = document.createElement('div');
-          arrowWrapper.style.position = 'relative';
-          arrowWrapper.style.display = 'flex';
-          arrowWrapper.style.flexDirection = 'column';
-          arrowWrapper.style.alignItems = 'center';
+          const entryDiv = document.createElement('div');
+          entryDiv.className = 'entry';
+
+          const container = document.createElement('div');
+          container.className = 'arrow-container';
 
           const shaft = document.createElement('div');
           shaft.className = 'shaft';
-          shaft.style.transform = `rotate(${deg % 360}deg)`;
+          shaft.style.height = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          arrow.style.borderBottomWidth = `${Math.min(Math.max(speed * 4, 10), 30)}px`;
-          arrow.style.transform = `rotate(${(deg + 180) % 360}deg)`;
+          arrow.style.transform = `translateX(-50%) rotate(${(deg + 180) % 360}deg)`;
+          if (highlightDir(deg)) arrow.classList.add('highlight');
 
-          if (highlightDir(deg)) {
-            arrow.classList.add('highlight');
-          }
-
-          arrowWrapper.appendChild(shaft);
-          arrowWrapper.appendChild(arrow);
+          container.appendChild(shaft);
+          container.appendChild(arrow);
 
           const timeText = document.createElement('div');
           timeText.className = 'timestamp';
@@ -145,38 +142,19 @@
           icon.src = `https://openweathermap.org/img/wn/${iconCode}@2x.png`;
           icon.alt = description;
 
-          const entryDiv = document.createElement('div');
-          entryDiv.className = 'entry';
-          entryDiv.appendChild(arrowWrapper);
+          entryDiv.appendChild(container);
           entryDiv.appendChild(timeText);
           entryDiv.appendChild(icon);
 
           if (hour < 12) {
-            amEntries.push(entryDiv);
+            am.appendChild(entryDiv);
           } else {
-            pmEntries.push(entryDiv);
+            pm.appendChild(entryDiv);
           }
         });
-
-        const splitIntoTwoRows = (entries, container) => {
-          const half = Math.ceil(entries.length / 2);
-          const row1 = document.createElement('div');
-          row1.className = 'timeline';
-          const row2 = document.createElement('div');
-          row2.className = 'timeline';
-
-          entries.slice(0, half).forEach(el => row1.appendChild(el));
-          entries.slice(half).forEach(el => row2.appendChild(el));
-
-          container.appendChild(row1);
-          container.appendChild(row2);
-        };
-
-        splitIntoTwoRows(amEntries, amContainer);
-        splitIntoTwoRows(pmEntries, pmContainer);
       })
       .catch(err => {
-        document.getElementById('dateHeader').textContent = 'データ取得エラー: ' + err;
+        document.getElementById('dateTitle').textContent = "データ取得エラー: " + err;
       });
   </script>
 </body>
