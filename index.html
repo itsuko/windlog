@@ -102,7 +102,7 @@
       const color = getColor(speed);
       const g = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       g.setAttribute("class", `arrow ${highlight ? "highlight" : ""}`);
-      g.setAttribute("viewBox", "0 0 20 40");
+      g.setAttribute("viewBox", "0 0 40 40");
       g.innerHTML = `
         <g transform="rotate(${rotation}, 10, 20)">
           <line x1="10" y1="5" x2="10" y2="30" stroke="${color}" stroke-width="3" />
