@@ -2,130 +2,116 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>風向・風速モニター</title>
+  <title>風向タイムライン</title>
   <style>
     body {
       font-family: sans-serif;
-      padding: 20px;
       text-align: center;
     }
-    .section {
-      margin-bottom: 40px;
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 10px;
+      margin: 20px;
+    }
+    .entry {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 10px;
     }
     svg {
-      overflow: visible;
+      width: 30px;
+      height: 60px;
     }
     .icon {
-      width: 50px;
-      height: 50px;
-    }
-    .highlight {
-      stroke: red;
-      stroke-width: 3;
+      width: 30px;
+      height: 30px;
     }
   </style>
 </head>
 <body>
-  <h1>風向・風速モニター（今日）</h1>
-  <div id="display"></div>
+  <div id="nav"></div>
+  <h2 id="title"></h2>
+  <h3>午前</h3>
+  <div class="grid" id="am1"></div>
+  <div class="grid" id="am2"></div>
+  <h3>午後</h3>
+  <div class="grid" id="pm1"></div>
+  <div class="grid" id="pm2"></div>
 
   <script>
-    const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec';
+    const urlParams = new URLSearchParams(window.location.search);
+    const date = urlParams.get('date') || new Date().toLocaleDateString('ja-JP', { year: 'numeric', month: '2-digit', day: '2-digit' }).replaceAll('/', '/');
+    const apiUrl = `https://script.google.com/macros/s/xxxxxxxxxxxxxxxxxxxxxxxxxxx/exec?date=${date}`;
 
-    function highlightDir(deg) {
-      return (deg >= 22.5 && deg < 67.5); // NNE～ENE
-    }
+    const highlightDir = deg => deg >= 22.5 && deg <= 67.5;
+    const getColor = speed => {
+      if (speed < 1) return '#b3e5fc';
+      if (speed < 3) return '#81d4fa';
+      if (speed < 5) return '#4fc3f7';
+      if (speed < 8) return '#29b6f6';
+      return '#0288d1';
+    };
+    const padZero = num => num.toString().padStart(2, '0');
 
-    function render(data) {
-      const display = document.getElementById('display');
-      display.innerHTML = '';
+    const prevDate = new Date(date);
+    prevDate.setDate(prevDate.getDate() - 1);
+    const nextDate = new Date(date);
+    nextDate.setDate(nextDate.getDate() + 1);
 
-      const svgNS = "http://www.w3.org/2000/svg";
-      const rows = [[], [], [], []]; // 午前1,2段、午後1,2段
-      const now = new Date();
-      data.forEach(entry => {
-        const t = new Date(entry.timestamp);
-        const hour = t.getHours();
-        const minute = t.getMinutes();
-        const timeStr = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
-        const deg = entry.windDeg ?? 0;
-        const speed = entry.windSpeed ?? 0;
-        const iconCode = entry.iconCode ?? '';
-        const description = entry.description ?? '';
-        const humidity = entry.humidity ?? '–';
+    document.getElementById('nav').innerHTML = `
+      <a href="?date=${prevDate.toISOString().split('T')[0].replace(/-/g, '/')}">←前日</a>
+      |
+      <a href="?date=${nextDate.toISOString().split('T')[0].replace(/-/g, '/')}">翌日→</a>
+    `;
 
-        const svg = document.createElementNS(svgNS, "svg");
-        svg.setAttribute("width", "60");
-        svg.setAttribute("height", "100");
-
-        const g = document.createElementNS(svgNS, "g");
-        g.setAttribute("transform", `translate(30,40) rotate(${(deg + 180) % 360})`);
-
-        const shaft = document.createElementNS(svgNS, "line");
-        shaft.setAttribute("x1", 0);
-        shaft.setAttribute("y1", 0);
-        shaft.setAttribute("x2", 0);
-        shaft.setAttribute("y2", -Math.min(Math.max(speed * 4, 10), 30));
-        shaft.setAttribute("stroke", "gray");
-        shaft.setAttribute("stroke-width", "4");
-        g.appendChild(shaft);
-
-        const arrowHead = document.createElementNS(svgNS, "polygon");
-        arrowHead.setAttribute("points", "-6,-40 6,-40 0,-30");
-        arrowHead.setAttribute("fill", "gray");
-        if (highlightDir(deg)) {
-          arrowHead.setAttribute("fill", "red");
-        }
-        g.appendChild(arrowHead);
-        svg.appendChild(g);
-
-        const timeText = document.createElementNS(svgNS, "text");
-        timeText.textContent = timeStr;
-        timeText.setAttribute("x", 30);
-        timeText.setAttribute("y", 90);
-        timeText.setAttribute("text-anchor", "middle");
-        timeText.setAttribute("font-size", "10");
-        svg.appendChild(timeText);
-
-        const icon = document.createElement("img");
-        icon.className = "icon";
-        icon.src = `https://openweathermap.org/img/wn/${iconCode}.png`;
-        icon.alt = description;
-
-        const container = document.createElement("div");
-        container.className = "section";
-        container.appendChild(svg);
-        container.appendChild(icon);
-
-        const rowIndex = (hour < 12)
-          ? (hour < 6 ? 0 : 1)
-          : (hour < 18 ? 2 : 3);
-        rows[rowIndex].push(container);
-      });
-
-      const labels = ['午前（前半）', '午前（後半）', '午後（前半）', '午後（後半）'];
-      rows.forEach((row, idx) => {
-        if (row.length === 0) return;
-        const section = document.createElement("div");
-        section.className = "section";
-        const label = document.createElement("h3");
-        label.textContent = labels[idx];
-        section.appendChild(label);
-        const wrapper = document.createElement("div");
-        wrapper.style.display = "flex";
-        wrapper.style.flexWrap = "wrap";
-        wrapper.style.justifyContent = "center";
-        row.forEach(el => wrapper.appendChild(el));
-        section.appendChild(wrapper);
-        display.appendChild(section);
-      });
-    }
+    document.getElementById('title').textContent = `${date} の風向`;
 
     fetch(apiUrl)
       .then(res => res.json())
-      .then(render)
-      .catch(err => {
-        document.getElementById('display').textContent = "データ取得エラー：" + err;
+      .then(data => {
+        const am1 = document.getElementById('am1');
+        const am2 = document.getElementById('am2');
+        const pm1 = document.getElementById('pm1');
+        const pm2 = document.getElementById('pm2');
+
+        let amCount = 0, pmCount = 0;
+
+        data.forEach(entry => {
+          const time = new Date(entry.timestamp);
+          const h = time.getHours();
+          const m = time.getMinutes();
+          const timeStr = `${padZero(h)}:${padZero(m)}`;
+
+          const deg = Number(entry.windDeg);
+          const speed = Number(entry.windSpeed);
+          const icon = entry.icon;
+          const desc = entry.description;
+
+          const arrowColor = highlightDir(deg) ? 'red' : getColor(speed);
+
+          const svg = `<svg viewBox="0 0 10 40" xmlns="http://www.w3.org/2000/svg">
+            <line x1="5" y1="0" x2="5" y2="25" stroke="${arrowColor}" stroke-width="2" transform="rotate(${(deg + 180) % 360}, 5, 20)" />
+            <polygon points="0,25 10,25 5,40" fill="${arrowColor}" transform="rotate(${(deg + 180) % 360}, 5, 20)" />
+          </svg>`;
+
+          const div = document.createElement('div');
+          div.className = 'entry';
+          div.innerHTML = `
+            <div>${timeStr}</div>
+            ${svg}
+            <img class="icon" src="https://openweathermap.org/img/wn/${icon}@2x.png" alt="${desc}">
+          `;
+
+          if (h < 12) {
+            (amCount < 12 ? am1 : am2).appendChild(div);
+            amCount++;
+          } else {
+            (pmCount < 12 ? pm1 : pm2).appendChild(div);
+            pmCount++;
+          }
+        });
       });
   </script>
 </body>
