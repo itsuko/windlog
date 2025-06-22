@@ -7,6 +7,11 @@
     body {
       font-family: sans-serif;
       padding: 20px;
+      text-align: center;
+    }
+
+    .timeline-section {
+      margin-bottom: 30px;
     }
 
     .timeline {
@@ -42,33 +47,44 @@
 </head>
 <body>
   <h2>風向タイムライン（過去24時間）</h2>
-  <div class="timeline" id="timeline"></div>
+
+  <div class="timeline-section">
+    <h3>午前</h3>
+    <div class="timeline" id="timeline-am"></div>
+  </div>
+
+  <div class="timeline-section">
+    <h3>午後</h3>
+    <div class="timeline" id="timeline-pm"></div>
+  </div>
 
   <script>
     const apiUrl = 'https://script.google.com/macros/s/AKfycbzZgiy79BuQtUgE1QVgdjaEpSD7knxwiLJsOdLADEmXk9eX2baUy9jwfsNomLXUKs6QbA/exec'; // ← Apps Script 公開URL
 
-    function getDirectionLabel(deg) {
-      if (deg >= 191.25 && deg < 213.75) return "SSW";
-      if (deg >= 213.75 && deg < 236.25) return "SW";
-      if (deg >= 236.25 && deg < 258.75) return "WSW";
-      return null;
+    // 北北東〜東北東の範囲で強調
+    function isHighlighted(deg) {
+      const norm = (deg + 360) % 360;
+      return norm >= 22.5 && norm <= 67.5;
     }
 
     fetch(apiUrl)
       .then(res => res.json())
       .then(data => {
-        const container = document.getElementById('timeline');
+        const amContainer = document.getElementById('timeline-am');
+        const pmContainer = document.getElementById('timeline-pm');
+
         data.forEach(entry => {
           const deg = entry.windDeg;
-          const time = new Date(entry.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-          const label = getDirectionLabel(deg);
+          const date = new Date(entry.timestamp);
+          const hour = date.getHours();
+          const time = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
           const entryDiv = document.createElement('div');
           entryDiv.className = 'entry';
 
           const arrow = document.createElement('div');
           arrow.className = 'arrow';
-          if (label) arrow.classList.add('highlight');
+          if (isHighlighted(deg)) arrow.classList.add('highlight');
           arrow.style.transform = `rotate(${deg}deg)`;
 
           const text = document.createElement('div');
@@ -76,9 +92,15 @@
 
           entryDiv.appendChild(arrow);
           entryDiv.appendChild(text);
-          container.appendChild(entryDiv);
+
+          if (hour < 12) {
+            amContainer.appendChild(entryDiv);
+          } else {
+            pmContainer.appendChild(entryDiv);
+          }
         });
       });
   </script>
 </body>
 </html>
+
